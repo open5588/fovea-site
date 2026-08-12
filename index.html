@@ -93,9 +93,9 @@ a { color: inherit; }
   border-bottom: 1px solid var(--rule-2);
 }
 .top .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; }
-.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-.logo svg { width: 24px; height: 24px; display: block; }
-.logo b { font: 600 16px/1 "Bahnschrift", "DIN Alternate", sans-serif; letter-spacing: .2em; }
+/* 字標本身就含名稱，不需要另外放文字——那會變成同一個名字出現兩次 */
+.logo { display: flex; align-items: center; text-decoration: none; }
+.logo svg { width: 106px; height: 26px; display: block; }
 
 /* ---------------------------------------------------------- 按鈕 -- */
 
@@ -289,17 +289,14 @@ footer a:hover { color: var(--amber); border-color: var(--amber); }
 
 <header class="top">
   <div class="wrap">
-    <a class="logo" href="#">
-      <svg viewBox="0 0 108 108" aria-hidden="true">
-        <g fill="currentColor">
-          <circle cx="54" cy="32" r="6"/><circle cx="73" cy="43" r="6"/>
-          <circle cx="73" cy="65" r="6"/><circle cx="54" cy="76" r="6"/>
-          <circle cx="35" cy="65" r="6"/><circle cx="35" cy="43" r="6"/>
-        </g>
-        <path fill="#B65B0C" fill-rule="evenodd"
-              d="M64 54a10 10 0 1 1-20 0 10 10 0 1 1 20 0ZM58 54a4 4 0 1 0-8 0 4 4 0 1 0 8 0Z"/>
+    <a class="logo" href="#" aria-label="Fovea">
+      <!-- 取景框角 + 鏡片 + 焦點。字母的 O 就是鏡頭，兩者拆開就不成立。 -->
+      <svg viewBox="0 0 262 64" aria-hidden="true">
+        <path fill="currentColor" d="M8 54V10h36v8H18v10h38v8H18v18ZM112 10h10l13 32 13-32h10l-18 44h-10ZM166 10h36v8h-26v10h23v8h-23v10h26v8h-36Z"/>
+        <path fill="currentColor" fill-rule="evenodd" d="M208 54l17-44h12l17 44h-10l-4-11h-18l-4 11Zm17-19h12l-6-17Z"/>
+        <path fill="var(--signal)" fill-rule="evenodd" d="M96 32a20 20 0 1 1-40 0 20 20 0 1 1 40 0Zm-8 0a12 12 0 1 0-24 0 12 12 0 1 0 24 0Zm8-3h14v6H96Z"/>
+        <path fill="var(--amber)" fill-rule="evenodd" d="M82.5 32a6.5 6.5 0 1 1-13 0 6.5 6.5 0 1 1 13 0ZM78.5 32a2.5 2.5 0 1 0-5 0 2.5 2.5 0 1 0 5 0Z"/>
       </svg>
-      <b>FOVEA</b>
     </a>
     <a class="btn sm" href="#download">免費下載</a>
   </div>
@@ -454,12 +451,17 @@ footer a:hover { color: var(--amber); border-color: var(--amber); }
         <p>需要 OBS Studio 32 以上，Apple 晶片的 Mac。安裝說明在下載頁裡。</p>
         <a class="btn" href="https://github.com/open5588/fovea-releases/releases/latest">下載</a>
       </div>
+      <div class="dl-card">
+        <h3>Android App</h3>
+        <p>Android 8.0 以上。目前不在 Play 商店，安裝時手機會提示來自不明來源，要在設定裡允許。</p>
+        <a class="btn" href="https://github.com/open5588/fovea-releases/releases/latest">下載</a>
+      </div>
     </div>
 
     <p class="soon">
-      <b>手機 App 還在上架中。</b>
-      Android 版已經可以用，正在送商店審核；iOS 版還在開發。
-      想先試的話可以到下載頁看最新狀態。
+      <b>電腦端與手機端要用同一版。</b>
+      版本不同會直接拒絕連線並說明原因，不會將就運作。
+      <b>iOS 版還在開發中。</b>
     </p>
   </div>
 </section>

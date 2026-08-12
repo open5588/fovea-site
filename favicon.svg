@@ -1,12 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-  <title id="title">Fovea</title>
-  <g fill="#10171C">
-    <circle cx="32" cy="10" r="6"/>
-    <circle cx="51" cy="21" r="6"/>
-    <circle cx="51" cy="43" r="6"/>
-    <circle cx="32" cy="54" r="6"/>
-    <circle cx="13" cy="43" r="6"/>
-    <circle cx="13" cy="21" r="6"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-labelledby="t">
+  <title id="t">Fovea</title>
+  <!--
+    16px 下取景框角會糊成一團，所以 favicon 只留鏡片與焦點，並把兩者
+    都放大一級。同心圓在極小尺寸仍然讀得出來，四個角則不會。
+  -->
+  <style>
+    .fv { --lens: #1E6E8C; --focus: #C86A16 }
+    @media (prefers-color-scheme: dark) {
+      .fv { --lens: #5FB6D6; --focus: #E4903F }
+    }
+  </style>
+  <g class="fv">
+    <path fill="var(--lens)" fill-rule="evenodd"
+          d="M96 54a42 42 0 1 1-84 0 42 42 0 1 1 84 0Zm-15 0a27 27 0 1 0-54 0 27 27 0 1 0 54 0Z"/>
+    <circle cx="54" cy="54" r="15" fill="var(--focus)"/>
   </g>
-  <circle cx="32" cy="32" r="7" fill="none" stroke="#C86A16" stroke-width="6"/>
 </svg>
