@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 24" class="fovea-imagery" role="img" aria-labelledby="title desc">
+  <title id="title">Fovea sampled section divider</title>
+  <desc id="desc">A seamless horizontal rule becomes denser toward an amber foveal centre, echoing the sampling-field mark.</desc>
+  <style>
+    .fovea-imagery{color:#10171C;--signal:#1E6E8C;--amber:#C86A16}
+    @media(prefers-color-scheme:dark){.fovea-imagery{color:#E4EAEE;--signal:#5FB6D6;--amber:#E4903F}}
+    .fovea-imagery .ink{fill:currentColor}.fovea-imagery .muted{fill:currentColor;opacity:.54}
+    .fovea-imagery .faint{fill:currentColor;opacity:.22}.fovea-imagery .signal{fill:var(--signal)}
+    .fovea-imagery .amber{fill:var(--amber)}.fovea-imagery .ink-line{fill:none;stroke:currentColor}
+    .fovea-imagery .muted-line{fill:none;stroke:currentColor;opacity:.54}
+    .fovea-imagery .faint-line{fill:none;stroke:currentColor;opacity:.22}
+    .fovea-imagery .signal-line{fill:none;stroke:var(--signal)}
+    .fovea-imagery .amber-line{fill:none;stroke:var(--amber)}
+    .fovea-imagery .crisp{shape-rendering:geometricPrecision}
+  </style>
+  <path d="M0 12H1200" class="faint-line" stroke-width="1.25"/>
+  <g class="signal">
+    <circle cx="0" cy="12" r="1.5"/><circle cx="96" cy="12" r="1.5"/><circle cx="236" cy="12" r="1.5"/><circle cx="352" cy="12" r="1.75"/>
+    <circle cx="444" cy="12" r="2"/><circle cx="510" cy="12" r="2"/><circle cx="552" cy="12" r="2.25"/>
+    <circle cx="576" cy="12" r="2.5"/><circle cx="624" cy="12" r="2.5"/><circle cx="648" cy="12" r="2.25"/>
+    <circle cx="690" cy="12" r="2"/><circle cx="756" cy="12" r="2"/><circle cx="848" cy="12" r="1.75"/>
+    <circle cx="964" cy="12" r="1.5"/><circle cx="1104" cy="12" r="1.5"/><circle cx="1200" cy="12" r="1.5"/>
+  </g>
+  <circle cx="600" cy="12" r="4.25" fill="none" stroke="var(--amber)" stroke-width="2.5"/>
+</svg>

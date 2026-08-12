@@ -1,593 +1,800 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fovea — 手機當 OBS 攝影機，走 USB，不緩衝</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<meta name="description" content="Fovea 把 Android 手機變成 OBS 的低延遲攝影機來源。Camera2 零拷貝直進硬體編碼器，OBS 端完全不緩衝。每個數字都是量出來的。">
+<meta name="description" content="Fovea 把手機變成 OBS 的低延遲攝影機來源。Camera2 零拷貝直進硬體編碼器，OBS 端完全不緩衝。每個數字都是量出來的，量不到的也說清楚。">
 
-<!-- 分享連結的預覽卡。og:image 一律用絕對網址：Facebook / Slack / Discord
-     的爬蟲不會沿用頁面路徑去解相對路徑，寫相對的等於沒有圖。 -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Fovea">
 <meta property="og:title" content="Fovea — 手機當 OBS 攝影機，走 USB，不緩衝">
-<meta property="og:description" content="Camera2 零拷貝直進硬體編碼器，OBS 端完全不緩衝。每個數字都是量出來的。">
+<meta property="og:description" content="Camera2 零拷貝直進硬體編碼器，OBS 端完全不緩衝。每個數字都是量出來的，量不到的也說清楚。">
 <meta property="og:url" content="https://open5588.github.io/fovea-site/">
 <meta property="og:image" content="https://open5588.github.io/fovea-site/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+
 <style>
-/* ------------------------------------------------------------------ *
- * Fovea — 光學儀器
+/* ==================================================================== *
+ * Fovea — 量測工作表
  *
- * 配色取自眼底攝影：冷灰藍的器械感，配一點黃斑部的琥珀。
- * 暖色只出現在一個地方，其餘全部安靜。
- * ------------------------------------------------------------------ */
+ * 版面的組織原則是「頁面即訊號路徑」：左側固定的標尺標出五個站，
+ * 捲動就是沿著感光→編碼→傳輸→解碼→OBS 走一遍。這個順序是內容
+ * 本身就有的，不是為了裝飾加上去的編號。
+ *
+ * 顏色只用來承載一件事：**這個數字是量到的，還是估的。**
+ * 琥珀＝量到的，灰＝設計預算。全站沒有第二個用途的暖色。
+ *
+ * 主題只跟隨 prefers-color-scheme，不做手動切換。因為 brand/imagery 的
+ * SVG 是用 <img> 載入的，它們內部的 media query 只看作業系統設定——
+ * 頁面若能被手動切換，就會出現「圖是深色、頁是淺色」的錯位。
+ * ==================================================================== */
+
 :root {
-  --paper:    #E7EBEE;
-  --panel:    #F4F6F7;
-  --ink:      #10171C;
-  --ink-soft: #4A5761;
-  --ink-faint:#8B98A1;
-  --rule:     #C3CDD4;
-  --amber:    #C86A16;
-  --signal:   #1E6E8C;
-
-  --measured: var(--signal);
-  --budget:   var(--ink-faint);
-
-  --display: Bahnschrift, "DIN Alternate", "Oswald", "Arial Narrow", sans-serif;
-  --body: "Segoe UI", system-ui, -apple-system, "Noto Sans TC", sans-serif;
-  --data: Consolas, "Cascadia Mono", "SF Mono", ui-monospace, monospace;
-
-  --gutter: clamp(1.25rem, 4vw, 3.5rem);
-  --measure: 62ch;
+  --ground:   #E3E9EC;
+  --surface:  #FFFFFF;
+  --ink:      #0C1319;
+  --ink-2:    #47555F;
+  --ink-3:    #7C8B95;
+  --rule:     #C9D2D8;
+  --rule-2:   #DEE5E9;
+  --signal:   #1B6C8A;
+  --amber:    #B65B0C;
+  --amber-bg: #F6EADD;
+  --shadow:   0 1px 2px rgba(12,19,25,.06), 0 8px 24px -12px rgba(12,19,25,.18);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper:    #0D1317;
-    --panel:    #141D23;
-    --ink:      #E4EAEE;
-    --ink-soft: #9AA9B3;
-    --ink-faint:#5E6E79;
-    --rule:     #253138;
-    --amber:    #E4903F;
+    --ground:   #080D11;
+    --surface:  #101A21;
+    --ink:      #E6ECEF;
+    --ink-2:    #9EADB7;
+    --ink-3:    #6B7C87;
+    --rule:     #24333D;
+    --rule-2:   #1A262E;
     --signal:   #5FB6D6;
+    --amber:    #E4903F;
+    --amber-bg: #241A11;
+    --shadow:   0 1px 2px rgba(0,0,0,.5), 0 8px 24px -12px rgba(0,0,0,.8);
   }
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 
 html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--ground);
   color: var(--ink);
-  font-family: var(--body);
-  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
-  line-height: 1.65;
-  -webkit-font-smoothing: antialiased;
+  font: 400 16px/1.75 "Segoe UI", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  font-feature-settings: "kern";
 }
 
-a { color: inherit; text-decoration-color: var(--amber); text-underline-offset: 3px; }
-a:hover { color: var(--amber); }
+/* 器械標籤用窄體無襯線。Bahnschrift 在 Windows、DIN Alternate 在 macOS，
+   兩者都是工程製圖出身的字，正好是這個產品的世界。 */
+.inst {
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display",
+               "Helvetica Neue", sans-serif;
+  font-stretch: condensed;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* 數字一律等寬且對齊。表格裡的數字不對齊就沒辦法一眼比大小。 */
+.num {
+  font-family: "Cascadia Mono", Consolas, "SF Mono", "Roboto Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+
+a { color: inherit; }
 :focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 
-.wrap { max-width: 68rem; margin-inline: auto; padding-inline: var(--gutter); }
+/* -------------------------------------------------------------- *
+ * 骨架：左側標尺 + 內容
+ * -------------------------------------------------------------- */
 
-/* --- masthead ----------------------------------------------------- */
-
-.masthead {
-  border-bottom: 1px solid var(--rule);
-  padding-block: 1.1rem;
-}
-.masthead .wrap {
-  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
-}
-.mark { width: 1.9rem; height: 1.9rem; flex: none; display: block; }
-.brand {
-  font-family: var(--display);
-  font-size: 1.5rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  margin: 0;
-}
-.brand .dot { color: var(--amber); }
-.masthead .role {
-  font-family: var(--data);
-  font-size: 0.75rem;
-  color: var(--ink-faint);
-  letter-spacing: 0.04em;
-  margin-left: auto;
+.shell {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 28px;
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 0 40px;
 }
 
-/* --- hero --------------------------------------------------------- */
+/* 標尺是固定的。捲動時它標出「你在訊號路徑的哪一站」。 */
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  padding: 26px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-right: 1px solid var(--rule-2);
+}
 
-.hero { padding-block: clamp(3rem, 8vw, 6rem) clamp(2rem, 5vw, 3.5rem); }
+.rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 40px;
+}
+.rail-brand svg { width: 22px; height: 22px; display: block; }
+.rail-brand b {
+  font: 600 15px/1 "Bahnschrift", "DIN Alternate", sans-serif;
+  letter-spacing: .22em;
+}
 
-.thesis {
-  font-family: var(--display);
-  font-weight: 400;
-  font-size: clamp(2rem, 1.1rem + 4vw, 4.2rem);
-  line-height: 1.12;
-  letter-spacing: -0.005em;
-  margin: 0 0 1.25rem;
-  max-width: 22ch;
+.stations { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.stations a {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 11px;
+  letter-spacing: .09em;
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color .18s;
+}
+.stations a:hover { color: var(--ink); }
+.stations i {
+  width: 7px; height: 7px; border-radius: 50%;
+  border: 1.5px solid currentColor;
+  justify-self: center;
+}
+.stations a.on { color: var(--amber); }
+.stations a.on i { background: currentColor; }
+
+.rail-foot {
+  margin-top: auto;
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--ink-3);
+  letter-spacing: .06em;
+}
+
+.main { min-width: 0; padding-bottom: 96px; }
+
+/* -------------------------------------------------------------- *
+ * 區塊節奏
+ * -------------------------------------------------------------- */
+
+section { padding: 88px 0; border-top: 1px solid var(--rule-2); }
+section:first-child { border-top: 0; }
+
+.eyebrow {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin: 0 0 18px;
+}
+
+h2 {
+  font: 400 clamp(26px, 3.4vw, 38px)/1.2 "Bahnschrift", "DIN Alternate", "Segoe UI", sans-serif;
+  letter-spacing: -.005em;
+  margin: 0 0 20px;
   text-wrap: balance;
 }
-/* 窄螢幕讓它自然折行就好，硬斷點反而更醜 */
-@media (max-width: 34rem) { .thesis br { display: none; } }
+
+h3 { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+
+p { margin: 0 0 16px; max-width: 62ch; color: var(--ink-2); }
+p strong { color: var(--ink); font-weight: 600; }
+
+code {
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: .88em;
+  background: var(--rule-2);
+  padding: .12em .38em;
+  border-radius: 3px;
+}
+
+/* -------------------------------------------------------------- *
+ * 首屏
+ * -------------------------------------------------------------- */
+
+.hero { padding-top: 76px; }
+
+.thesis {
+  font: 400 clamp(38px, 6.6vw, 76px)/1.08 "Bahnschrift", "DIN Alternate", "Segoe UI", sans-serif;
+  letter-spacing: -.015em;
+  margin: 0 0 26px;
+  text-wrap: balance;
+}
 .thesis em { font-style: normal; color: var(--amber); }
 
-.standfirst {
-  max-width: var(--measure);
-  color: var(--ink-soft);
-  margin: 0 0 2.5rem;
-  font-size: 1.0625rem;
-}
+.lede { font-size: 18px; max-width: 54ch; margin-bottom: 30px; }
 
-/* --- 招牌元素：延遲瀑布圖 ------------------------------------------ */
+.cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 14px; }
 
-.waterfall { margin-top: 3rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 12px 22px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--ground);
+  font-size: 14px; font-weight: 600;
+  text-decoration: none;
+  transition: opacity .18s;
+}
+.btn:hover { opacity: .84; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--rule); }
+.btn.ghost:hover { border-color: var(--ink); opacity: 1; }
 
-.waterfall-head {
-  display: flex; align-items: baseline; gap: 0.75rem;
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 0.5rem; margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-}
-.waterfall-head h2 {
-  font-family: var(--display); font-size: 1rem; letter-spacing: 0.09em;
-  text-transform: uppercase; margin: 0; font-weight: 400;
-}
-.waterfall-head .unit {
-  font-family: var(--data); font-size: 0.72rem; color: var(--ink-faint);
-  margin-left: auto;
-}
+.cta-note { font-size: 12.5px; color: var(--ink-3); margin: 0; }
 
-.stage {
+/* 主視覺是滿版的。它跟延遲瀑布圖講同一件事，所以緊接著放。 */
+.hero-art { margin: 42px 0 0; }
+.hero-art img { display: block; width: 100%; height: auto; }
+
+/* -------------------------------------------------------------- *
+ * 延遲瀑布圖 — 整頁的核心
+ *
+ * 「已量到」與「設計預算」的差別必須是視覺上的第一層資訊，
+ * 不能只寫在下面的圖例裡。實心＝量到的，空心虛線＝還沒量到的。
+ * -------------------------------------------------------------- */
+
+.chart { background: var(--surface); box-shadow: var(--shadow); padding: 30px 32px 26px; }
+
+.chart-head {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: baseline; justify-content: space-between;
+  padding-bottom: 16px; margin-bottom: 8px;
+  border-bottom: 1px solid var(--rule-2);
+}
+.chart-head h3 { margin: 0; font-size: 15px; }
+.chart-cond { font-size: 11px; color: var(--ink-3); }
+
+.rows { display: grid; gap: 1px; }
+
+.row {
   display: grid;
-  grid-template-columns: 14.5rem minmax(0, 30rem) 4.5rem;
+  grid-template-columns: minmax(120px, 168px) 1fr 76px;
   align-items: center;
-  gap: 0 1rem;
-  padding-block: 0.45rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule-2);
 }
-.stage:last-of-type { border-bottom: 0; }
+.row:last-child { border-bottom: 0; }
 
-.stage-name {
-  font-size: 0.9rem;
-  display: flex; align-items: baseline; gap: 0.5rem;
-}
-.stage-name .tag {
-  font-family: var(--data); font-size: 0.62rem; letter-spacing: 0.06em;
-  padding: 0.1rem 0.35rem; border: 1px solid currentColor; border-radius: 2px;
+.row-label { font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+
+.tag {
+  font-size: 9.5px; letter-spacing: .1em;
+  padding: 2px 6px; border: 1px solid currentColor;
   white-space: nowrap;
 }
-.stage.is-measured .tag { color: var(--measured); }
-.stage.is-budget .tag { color: var(--ink-faint); }
+.tag.measured { color: var(--amber); }
+.tag.budget   { color: var(--ink-3); }
 
-.track { height: 0.85rem; position: relative; }
-.bar {
-  position: absolute; inset-block: 0; left: 0;
-  width: var(--w);
-  border-radius: 1px;
-  transform-origin: left center;
-}
-.stage.is-measured .bar { background: var(--measured); }
-.stage.is-budget .bar {
-  border: 1px solid var(--budget);
+.track { position: relative; height: 15px; }
+.bar { position: absolute; top: 0; bottom: 0; left: 0; }
+.bar.measured { background: var(--amber); }
+.bar.budget {
+  border: 1px dashed var(--ink-3);
   background: repeating-linear-gradient(
-    135deg, transparent 0 4px, color-mix(in srgb, var(--budget) 45%, transparent) 4px 5px);
+    -45deg, transparent 0 5px, var(--rule) 5px 6px);
 }
 
-.stage-value {
-  font-family: var(--data); font-size: 0.8rem; color: var(--ink-soft);
-  white-space: nowrap; text-align: right;
-}
+.row-val { font-size: 13px; text-align: right; color: var(--ink-2); }
+.row.sum { border-top: 2px solid var(--ink); border-bottom: 0; margin-top: 6px; padding-top: 12px; }
+.row.sum .row-label, .row.sum .row-val { font-weight: 600; color: var(--ink); font-size: 14px; }
 
-.stage-total {
-  display: grid; grid-template-columns: 14.5rem minmax(0, 30rem) 4.5rem; gap: 0 1rem;
-  border-top: 2px solid var(--ink); margin-top: 0.5rem; padding-top: 0.6rem;
-  align-items: baseline;
+/* ×10 放大鏡。電腦端三段加起來不到一毫秒，用同一個比例尺根本看不見。 */
+.inset {
+  margin-top: 22px;
+  border-left: 2px solid var(--amber);
+  background: var(--amber-bg);
+  padding: 18px 22px;
 }
-.stage-total .stage-name { font-family: var(--display); letter-spacing: 0.1em;
-  text-transform: uppercase; font-size: 0.85rem; }
-.stage-total .stage-value { font-size: 1rem; color: var(--ink); }
-
-/* 局部放大：儀器上常見的 detail view，用內縮＋左側粗線標示它是另一個刻度 */
-.detail {
-  margin-top: 1.5rem; margin-left: clamp(0px, 4vw, 3rem);
-  padding: 0.9rem 1.1rem 1rem;
-  border: 1px solid var(--rule); border-left: 3px solid var(--amber);
-  border-radius: 2px; background: var(--panel);
+.inset-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; color: var(--ink-2); margin-bottom: 12px;
 }
-.detail-head {
-  display: flex; align-items: baseline; gap: 0.75rem;
-  margin-bottom: 0.4rem;
-}
-.detail-label {
-  font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.1em;
-  color: var(--ink-soft);
-}
-.detail-scale {
-  font-family: var(--data); font-size: 0.72rem; color: var(--amber);
-  margin-left: auto;
-}
-.detail .stage { grid-template-columns: 8rem minmax(0, 30rem) 4.5rem; padding-block: 0.32rem; }
-.detail .stage:last-of-type { border-bottom: 0; }
-.detail-note {
-  margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--ink-soft);
-  max-width: 46ch;
-}
-@media (max-width: 44rem) {
-  .detail .stage { grid-template-columns: 1fr auto; }
-}
+.inset-head b { color: var(--amber); font-size: 11px; }
+.inset .row { border-color: rgba(128,128,128,.22); grid-template-columns: minmax(90px,120px) 1fr 64px; }
+.inset p { font-size: 12.5px; margin: 14px 0 0; color: var(--ink-2); max-width: 58ch; }
 
 .legend {
-  display: flex; gap: 1.5rem; flex-wrap: wrap;
-  margin-top: 1.25rem; font-size: 0.8rem; color: var(--ink-soft);
+  display: flex; flex-wrap: wrap; gap: 22px;
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid var(--rule-2);
+  font-size: 11.5px; color: var(--ink-2);
 }
-.legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
-.swatch { width: 1.4rem; height: 0.6rem; border-radius: 1px; flex: none; }
-.swatch.m { background: var(--measured); }
-.swatch.b {
-  border: 1px solid var(--budget);
-  background: repeating-linear-gradient(
-    135deg, transparent 0 4px, color-mix(in srgb, var(--budget) 45%, transparent) 4px 5px);
-}
-
-@media (max-width: 44rem) {
-  /* 窄螢幕：名稱獨佔一行，長條與數值並排，數值才不會跟長條脫節 */
-  .stage, .stage-total { grid-template-columns: 1fr 4.5rem; }
-  .stage-name { grid-column: 1 / -1; }
-  .track { grid-column: 1; margin-top: 0.3rem; }
-  .stage-value { grid-column: 2; }
+.legend span { display: flex; align-items: center; gap: 8px; }
+.swatch { width: 26px; height: 10px; flex: none; }
+.swatch.measured { background: var(--amber); }
+.swatch.budget {
+  border: 1px dashed var(--ink-3);
+  background: repeating-linear-gradient(-45deg, transparent 0 5px, var(--rule) 5px 6px);
 }
 
-/* 一次性的載入編排：長條依序長出來，像儀器在描跡 */
-@media (prefers-reduced-motion: no-preference) {
-  .bar { animation: draw 620ms cubic-bezier(.2,.7,.3,1) both; }
-  @keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* -------------------------------------------------------------- *
+ * 圖說：資訊圖 + 旁邊的論點
+ * -------------------------------------------------------------- */
+
+.figure { margin: 0 0 8px; }
+.figure img { display: block; width: 100%; height: auto; }
+.figure figcaption { font-size: 12.5px; color: var(--ink-3); margin-top: 10px; max-width: 62ch; }
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 44px;
+  align-items: start;
 }
+.split.flip > :first-child { order: 2; }
 
-/* --- 一般區塊 ----------------------------------------------------- */
+/* -------------------------------------------------------------- *
+ * 卡片
+ * -------------------------------------------------------------- */
 
-.band { border-top: 1px solid var(--rule); padding-block: clamp(2.5rem, 6vw, 4.5rem); }
-.band-title {
-  font-family: var(--display); font-size: 0.95rem; letter-spacing: 0.09em;
-  text-transform: uppercase; margin: 0 0 1.75rem; font-weight: 400;
-  color: var(--ink-soft);
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1px;
+         background: var(--rule-2); border: 1px solid var(--rule-2); }
+.card { background: var(--surface); padding: 24px 22px; }
+.card .kicker { font-size: 10px; color: var(--signal); margin: 0 0 12px; }
+.card p { font-size: 14px; margin: 0; color: var(--ink-2); }
+
+/* -------------------------------------------------------------- *
+ * 量測表
+ * -------------------------------------------------------------- */
+
+.data { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data th {
+  text-align: left; font-size: 10.5px; color: var(--ink-3);
+  font-weight: 400; padding: 0 14px 10px 0; border-bottom: 1px solid var(--rule);
 }
-.lede { max-width: var(--measure); margin: 0 0 2rem; }
+.data th:last-child, .data td:last-child { padding-right: 0; }
+.data td { padding: 11px 14px 11px 0; border-bottom: 1px solid var(--rule-2); vertical-align: baseline; }
+.data td:nth-child(2) { color: var(--amber); white-space: nowrap; }
+.data td:nth-child(3) { color: var(--ink-3); font-size: 13px; }
 
-/* 訊號鏈 */
-.chain { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
-@media (min-width: 52rem) { .chain { grid-template-columns: repeat(3, 1fr); } }
-.link { background: var(--panel); padding: 1.5rem 1.35rem; }
-.link h3 {
-  font-family: var(--display); font-size: 1.05rem; letter-spacing: 0.04em;
-  text-transform: uppercase; margin: 0 0 0.15rem; font-weight: 400;
+/* -------------------------------------------------------------- *
+ * 決定清單
+ * -------------------------------------------------------------- */
+
+.decisions { display: grid; gap: 0; }
+.decision { padding: 22px 0; border-bottom: 1px solid var(--rule-2); }
+.decision:last-child { border-bottom: 0; }
+.decision p { font-size: 14.5px; margin: 0; }
+
+/* -------------------------------------------------------------- *
+ * 下載
+ * -------------------------------------------------------------- */
+
+.dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 22px; }
+.dl-item {
+  background: var(--surface); box-shadow: var(--shadow);
+  padding: 22px; display: flex; flex-direction: column; gap: 10px;
 }
-.link .where { font-family: var(--data); font-size: 0.68rem; color: var(--amber);
-  letter-spacing: 0.06em; display: block; margin-bottom: 0.8rem; }
-.link p { margin: 0; font-size: 0.92rem; color: var(--ink-soft); }
+.dl-item h3 { margin: 0; font-size: 15px; }
+.dl-req { font-size: 12px; color: var(--ink-3); margin: 0; flex: 1; }
+.dl-item .btn { align-self: flex-start; padding: 9px 16px; font-size: 13px; }
 
-/* 量測表
- * 表格不會縮到內容寬度以下，放著不管會把整份文件撐寬，
- * 手機上每一段都被切掉右邊。所以讓它自己捲，不要拖累版面。 */
-.table-scroll { overflow-x: auto; }
-.readout { width: 100%; min-width: 30rem; border-collapse: collapse; font-size: 0.92rem; }
-.readout caption { text-align: left; color: var(--ink-soft); font-size: 0.85rem;
-  padding-bottom: 0.75rem; }
-.readout th, .readout td { text-align: left; padding: 0.62rem 0.75rem 0.62rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
-.readout th { font-family: var(--display); font-weight: 400; letter-spacing: 0.1em;
-  text-transform: uppercase; font-size: 0.72rem; color: var(--ink-faint); }
-.readout td.n { font-family: var(--data); color: var(--signal); white-space: nowrap; }
-.readout tr:last-child td { border-bottom: 0; }
+.notyet { border: 1px solid var(--rule); padding: 20px 22px; }
+.notyet h3 { color: var(--ink-3); font-size: 13px; margin-bottom: 12px; }
+.notyet ul { margin: 0; padding-left: 1.1em; font-size: 13.5px; color: var(--ink-2); }
+.notyet li { margin-bottom: 7px; }
+.notyet li:last-child { margin-bottom: 0; }
 
-/* 設計決定 */
-.calls { display: grid; gap: 1.75rem; }
-@media (min-width: 52rem) { .calls { grid-template-columns: 1fr 1fr; gap: 2.25rem 3rem; } }
-.call h3 { font-size: 1rem; margin: 0 0 0.4rem; }
-.call h3 code { font-family: var(--data); font-size: 0.86em; color: var(--amber); }
-.call p { margin: 0; color: var(--ink-soft); font-size: 0.93rem; }
-
-/* 安裝 */
-pre {
-  font-family: var(--data); font-size: 0.82rem; line-height: 1.7;
-  background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
-  padding: 1.1rem 1.25rem; overflow-x: auto; margin: 0 0 1rem;
-}
-pre .c { color: var(--ink-faint); }
-
-/* 狀態 */
-.status { display: grid; gap: 0.5rem; max-width: var(--measure); }
-.status div { display: grid; grid-template-columns: 1.5rem 1fr; gap: 0.5rem;
-  font-size: 0.92rem; }
-.status .yes { color: var(--signal); font-family: var(--data); }
-.status .no  { color: var(--amber); font-family: var(--data); }
+/* -------------------------------------------------------------- *
+ * 頁尾
+ * -------------------------------------------------------------- */
 
 footer {
-  border-top: 1px solid var(--rule); padding-block: 2rem 3rem;
-  font-size: 0.82rem; color: var(--ink-faint);
+  border-top: 1px solid var(--rule);
+  padding: 30px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between;
 }
-footer p { margin: 0.35rem 0; max-width: var(--measure); }
+footer a { text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 1px; }
+footer a:hover { border-color: var(--amber); color: var(--amber); }
+
+/* -------------------------------------------------------------- *
+ * 窄螢幕：標尺收掉，改成一般文件流
+ * -------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); padding: 0 20px; }
+  .rail { position: static; height: auto; border-right: 0;
+          border-bottom: 1px solid var(--rule-2); padding: 20px 0; margin-bottom: 8px; }
+  .rail-brand { margin-bottom: 0; }
+  .stations, .rail-foot { display: none; }
+  .split { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .split.flip > :first-child { order: 0; }
+  section { padding: 60px 0; }
+  .chart { padding: 22px 18px 20px; margin: 0 -18px; }
+  .row { grid-template-columns: minmax(96px, 130px) 1fr 62px; gap: 10px; font-size: 12px; }
+  .row-label { font-size: 12.5px; flex-wrap: wrap; gap: 5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; scroll-behavior: auto !important; }
+}
+
+html { scroll-behavior: smooth; }
 </style>
 </head>
 <body>
 
-<header class="masthead">
-  <div class="wrap">
-    <!-- 標記內嵌而非用 <img>：透過 img 載入的 SVG 是獨立文件，
-         拿不到頁面的 CSS 變數，深色模式就跟著壞掉 -->
-    <svg class="mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <g fill="var(--signal)">
-        <circle cx="32" cy="5" r="2.5"/><circle cx="45.5" cy="8.6" r="2.5"/>
-        <circle cx="55.4" cy="18.5" r="2.5"/><circle cx="59" cy="32" r="2.5"/>
-        <circle cx="55.4" cy="45.5" r="2.5"/><circle cx="45.5" cy="55.4" r="2.5"/>
-        <circle cx="32" cy="59" r="2.5"/><circle cx="18.5" cy="55.4" r="2.5"/>
-        <circle cx="8.6" cy="45.5" r="2.5"/><circle cx="5" cy="32" r="2.5"/>
-        <circle cx="8.6" cy="18.5" r="2.5"/><circle cx="18.5" cy="8.6" r="2.5"/>
+<div class="shell">
+
+<!-- 左側標尺：訊號路徑上的五個站 -->
+<nav class="rail" aria-label="頁面章節">
+  <div class="rail-brand">
+    <svg viewBox="0 0 108 108" aria-hidden="true">
+      <g fill="currentColor">
+        <circle cx="54" cy="32" r="6"/><circle cx="73" cy="43" r="6"/>
+        <circle cx="73" cy="65" r="6"/><circle cx="54" cy="76" r="6"/>
+        <circle cx="35" cy="65" r="6"/><circle cx="35" cy="43" r="6"/>
       </g>
-      <g fill="var(--ink)">
-        <circle cx="32" cy="21" r="3.25"/><circle cx="41.5" cy="26.5" r="3.25"/>
-        <circle cx="41.5" cy="37.5" r="3.25"/><circle cx="32" cy="43" r="3.25"/>
-        <circle cx="22.5" cy="37.5" r="3.25"/><circle cx="22.5" cy="26.5" r="3.25"/>
-      </g>
-      <circle cx="32" cy="32" r="4.25" fill="none" stroke="var(--amber)" stroke-width="4"/>
+      <path fill="#B65B0C" fill-rule="evenodd"
+            d="M64 54a10 10 0 1 1-20 0 10 10 0 1 1 20 0ZM58 54a4 4 0 1 0-8 0 4 4 0 1 0 8 0Z"/>
     </svg>
-    <p class="brand">Fovea<span class="dot">.</span></p>
-    <span class="role">Android → USB → OBS</span>
+    <b class="inst">FOVEA</b>
   </div>
-</header>
 
-<main>
+  <ul class="stations inst">
+    <li><a href="#budget"><i></i>毫秒去向</a></li>
+    <li><a href="#chain"><i></i>訊號鏈</a></li>
+    <li><a href="#buffer"><i></i>不緩衝</a></li>
+    <li><a href="#network"><i></i>壞網路</a></li>
+    <li><a href="#measured"><i></i>量到的</a></li>
+    <li><a href="#decisions"><i></i>取捨</a></li>
+    <li><a href="#download"><i></i>下載</a></li>
+  </ul>
 
-  <section class="hero">
-    <div class="wrap">
-      <h1 class="thesis">延遲不是玄學，<br><em>是可以拆開來量的</em>。</h1>
-      <p class="standfirst">
-        Fovea 把 Android 手機變成 OBS 的攝影機來源，走 USB。
-        相機的輸出直接就是硬體編碼器的輸入，中間沒有一次複製；
-        到了電腦端也不排隊，畫面一到就交給 OBS。
-        下面是這條路徑上每一段的時間——已經量到的用實心標，還沒量的照實說。
-      </p>
+  <div class="rail-foot inst">
+    <span style="color:var(--amber)">■</span> 已量到<br>
+    <span>▨</span> 設計預算
+  </div>
+</nav>
 
-      <div class="waterfall">
-        <div class="waterfall-head">
-          <h2>毫秒都花到哪裡去了</h2>
-          <span class="unit">1080p30 · USB · 單位 ms</span>
-        </div>
+<main class="main">
 
-        <div class="stage is-budget">
-          <span class="stage-name">感光與讀出 <span class="tag">預算</span></span>
-          <div class="track"><div class="bar" style="--w:33.3%; animation-delay:0ms"></div></div>
-          <span class="stage-value">33.3</span>
-        </div>
+<!-- ============================ 首屏 ============================ -->
+<section class="hero">
+  <h1 class="thesis">延遲不是玄學，<br><em>是可以拆開來量的</em>。</h1>
 
-        <div class="stage is-budget">
-          <span class="stage-name">相機 → 編碼器 <span class="tag">預算</span></span>
-          <div class="track"><div class="bar" style="--w:33.3%; animation-delay:70ms"></div></div>
-          <span class="stage-value">33.3</span>
-        </div>
+  <p class="lede">
+    Fovea 把手機變成 OBS 的攝影機來源，走 USB 或 WiFi。相機的輸出直接就是硬體
+    編碼器的輸入，中間沒有一次複製；到了電腦端也不排隊，畫面一到就交給 OBS。
+  </p>
 
-        <div class="stage is-budget">
-          <span class="stage-name">硬體編碼 <span class="tag">預算</span></span>
-          <div class="track"><div class="bar" style="--w:10%; animation-delay:140ms"></div></div>
-          <span class="stage-value">6–10</span>
-        </div>
+  <div class="cta">
+    <a class="btn" href="#download">下載 OBS plugin</a>
+    <a class="btn ghost" href="#budget">先看數字</a>
+  </div>
+  <p class="cta-note inst">Windows · macOS · 目前是 v0.1.0</p>
 
-        <div class="stage is-measured">
-          <span class="stage-name">USB 傳輸 <span class="tag">已量</span></span>
-          <div class="track"><div class="bar" style="--w:2%; animation-delay:210ms"></div></div>
-          <span class="stage-value">&lt;2</span>
-        </div>
+  <figure class="hero-art">
+    <img src="img/hero-signal.svg" alt="從感光元件到螢幕的訊號路徑，標出七個交接點" width="1200" height="760">
+  </figure>
+</section>
 
-        <div class="stage is-measured">
-          <span class="stage-name">解碼 <span class="tag">已量</span></span>
-          <div class="track"><div class="bar" style="--w:5.9%; animation-delay:280ms"></div></div>
-          <span class="stage-value">5.9</span>
-        </div>
+<!-- ========================== 毫秒去向 ========================== -->
+<section id="budget">
+  <p class="eyebrow inst">01 / 延遲預算</p>
+  <h2>毫秒都花到哪裡去了</h2>
+  <p>
+    每一段都列出來。<strong>琥珀色是實際量到的</strong>，方法與原始樣本寫在專案的
+    量測文件裡；<strong>網底是設計預算</strong>——還沒在實機上量到，照實標示，
+    不混進總結裡當成戰績。
+  </p>
 
-        <div class="stage is-measured">
-          <span class="stage-name">交給 OBS <span class="tag">已量</span></span>
-          <div class="track"><div class="bar" style="--w:0.2%; animation-delay:350ms"></div></div>
-          <span class="stage-value">0.17</span>
-        </div>
+  <div class="chart">
+    <div class="chart-head">
+      <h3>1080p30 · USB</h3>
+      <span class="chart-cond inst">單位 ms</span>
+    </div>
 
-        <div class="stage is-budget">
-          <span class="stage-name">OBS 合成到螢幕 <span class="tag">預算</span></span>
-          <div class="track"><div class="bar" style="--w:16%; animation-delay:420ms"></div></div>
-          <span class="stage-value">8–16</span>
-        </div>
-
-        <div class="stage-total">
-          <span class="stage-name">合計</span>
-          <span></span>
-          <span class="stage-value">89–101</span>
-        </div>
-
-        <!-- 電腦端那三段在上面的線性刻度下細到幾乎看不見。那正是重點，
-             但也得讓人看得到，所以照儀器的慣例補一個局部放大。 -->
-        <div class="detail">
-          <div class="detail-head">
-            <span class="detail-label">電腦端局部放大</span>
-            <span class="detail-scale">×10</span>
-          </div>
-          <div class="stage is-measured">
-            <span class="stage-name">USB 傳輸</span>
-            <div class="track"><div class="bar" style="--w:20%; animation-delay:520ms"></div></div>
-            <span class="stage-value">&lt;2</span>
-          </div>
-          <div class="stage is-measured">
-            <span class="stage-name">解碼</span>
-            <div class="track"><div class="bar" style="--w:59%; animation-delay:590ms"></div></div>
-            <span class="stage-value">5.9</span>
-          </div>
-          <div class="stage is-measured">
-            <span class="stage-name">交給 OBS</span>
-            <div class="track"><div class="bar" style="--w:1.7%; animation-delay:660ms"></div></div>
-            <span class="stage-value">0.17</span>
-          </div>
-          <p class="detail-note">
-            合成素材下這三段加起來不到一毫秒；換成真實相機畫面，解碼是 5.9 ms。電腦端能省的已經省完了——剩下的差距在手機那頭。
-          </p>
-        </div>
-
-        <p class="legend">
-          <span><i class="swatch m"></i>已量測——數字來自實測，方法寫在專案文件裡</span>
-          <span><i class="swatch b"></i>設計預算——還沒在實機上量到，照實標示</span>
-        </p>
+    <div class="rows">
+      <div class="row">
+        <span class="row-label">感光與讀出 <span class="tag budget inst">預算</span></span>
+        <span class="track"><span class="bar budget" style="width:33%"></span></span>
+        <span class="row-val num">33.3</span>
+      </div>
+      <div class="row">
+        <span class="row-label">相機 → 編碼器 <span class="tag budget inst">預算</span></span>
+        <span class="track"><span class="bar budget" style="width:33%"></span></span>
+        <span class="row-val num">33.3</span>
+      </div>
+      <div class="row">
+        <span class="row-label">硬體編碼 <span class="tag budget inst">預算</span></span>
+        <span class="track"><span class="bar budget" style="width:9%"></span></span>
+        <span class="row-val num">6–10</span>
+      </div>
+      <div class="row">
+        <span class="row-label">USB 傳輸 <span class="tag measured inst">已量</span></span>
+        <span class="track"><span class="bar measured" style="width:2%"></span></span>
+        <span class="row-val num">&lt;2</span>
+      </div>
+      <div class="row">
+        <span class="row-label">解碼 <span class="tag measured inst">已量</span></span>
+        <span class="track"><span class="bar measured" style="width:5.9%"></span></span>
+        <span class="row-val num">5.9</span>
+      </div>
+      <div class="row">
+        <span class="row-label">交給 OBS <span class="tag measured inst">已量</span></span>
+        <span class="track"><span class="bar measured" style="width:0.6%"></span></span>
+        <span class="row-val num">0.17</span>
+      </div>
+      <div class="row">
+        <span class="row-label">OBS 合成到螢幕 <span class="tag budget inst">預算</span></span>
+        <span class="track"><span class="bar budget" style="width:16%"></span></span>
+        <span class="row-val num">8–16</span>
+      </div>
+      <div class="row sum">
+        <span class="row-label">合計</span>
+        <span class="track"></span>
+        <span class="row-val num">89–101</span>
       </div>
     </div>
-  </section>
 
-  <section class="band">
-    <div class="wrap">
-      <h2 class="band-title">訊號鏈</h2>
-      <div class="chain">
-        <div class="link">
-          <h3>擷取</h3>
-          <span class="where">手機端 · Kotlin</span>
-          <p>
-            Camera2 的輸出 Surface 直接綁在 MediaCodec 的輸入上，影格從來沒有
-            進過 Java 記憶體。編碼器開啟低延遲模式、固定位元率、不產生 B-frame。
-            自動曝光的 fps 範圍被鎖死，所以光線一暗畫面不會偷偷掉到 15fps。
-          </p>
+    <div class="inset">
+      <div class="inset-head inst">
+        <span>電腦端局部放大</span><b>×10</b>
+      </div>
+      <div class="rows">
+        <div class="row">
+          <span class="row-label">USB 傳輸</span>
+          <span class="track"><span class="bar measured" style="width:20%"></span></span>
+          <span class="row-val num">&lt;2</span>
         </div>
-        <div class="link">
-          <h3>傳輸</h3>
-          <span class="where">USB · adb forward</span>
-          <p>
-            走 abstract socket，不在手機上開對外的網路埠，也不需要知道 IP。
-            轉接是接你電腦上既有的 adb server——我們不夾帶第二支 adb.exe，
-            因為那正是同類工具用一用就斷線的原因。
-          </p>
+        <div class="row">
+          <span class="row-label">解碼</span>
+          <span class="track"><span class="bar measured" style="width:59%"></span></span>
+          <span class="row-val num">5.9</span>
         </div>
-        <div class="link">
-          <h3>解碼</h3>
-          <span class="where">電腦端 · OBS plugin</span>
-          <p>
-            FFmpeg 低延遲解碼，只用 slice 層級的多執行緒——frame 層級雖然更快，
-            代價是輸出必然落後好幾格。送進 OBS 時關掉非同步緩衝，
-            畫面一到就顯示，晚到的直接丟掉。
-          </p>
+        <div class="row">
+          <span class="row-label">交給 OBS</span>
+          <span class="track"><span class="bar measured" style="width:1.7%"></span></span>
+          <span class="row-val num">0.17</span>
         </div>
       </div>
-    </div>
-  </section>
-
-  <section class="band">
-    <div class="wrap">
-      <h2 class="band-title">已經量到的</h2>
-      <p class="lede">
-        這些是實際跑出來的數字，不是估的。量測方法、原始樣本與環境限制
-        都寫在專案的量測文件裡；量不到的部分也一併寫著為什麼量不到。
-      </p>
-      <div class="table-scroll"><table class="readout">
-        <caption>電腦端管線與長時間穩定度</caption>
-        <tr><th scope="col">項目</th><th scope="col">結果</th><th scope="col">條件</th></tr>
-        <tr><td>解碼一張影格</td><td class="n">5.9 ms</td><td>實機 1080p30 相機畫面，23.7 Mbps</td></tr>
-        <tr><td>擷取→到達 PC 的超出延遲</td><td class="n">9.8 ms</td><td>實機中位數，p95 21.2 ms</td></tr>
-        <tr><td>影格間隔穩定度</td><td class="n">33.7 ms</td><td>實機最小＝最大＝中位數</td></tr>
-        <tr><td>收到封包到交給 OBS</td><td class="n">0.85 ms</td><td>與送端共用同一個時鐘</td></tr>
-        <tr><td>連續串流</td><td class="n">19,569 張</td><td>652 秒，30.001 fps</td></tr>
-        <tr><td>與理論影格數的差異</td><td class="n">1 張</td><td>0.005%</td></tr>
-        <tr><td>記憶體與 handle</td><td class="n">無成長</td><td>11 分鐘後低於起始值</td></tr>
-        <tr><td>斷線自動恢復</td><td class="n">5 / 5</td><td>1.1–1.3 秒，影格續增</td></tr>
-        <tr><td>USB 可用頻寬</td><td class="n">194 Mbps</td><td>實測 adb 傳輸</td></tr>
-      </table></div>
-    </div>
-  </section>
-
-  <section class="band">
-    <div class="wrap">
-      <h2 class="band-title">幾個刻意的決定</h2>
-      <div class="calls">
-        <div class="call">
-          <h3>用軟體解碼，不用 <code>D3D11VA</code></h3>
-          <p>
-            硬體解碼本身更快，但結果留在顯示卡記憶體裡，而 OBS 的非同步來源
-            要的是主記憶體的畫面——把 1080p 讀回來的代價通常比直接軟解還高。
-          </p>
-        </div>
-        <div class="call">
-          <h3>佇列只留三格，而且丟舊的</h3>
-          <p>
-            傳輸跟不上時，你要看到的是最新的畫面，不是三格之前的畫面。
-            排隊就是延遲，所以寧可丟。
-          </p>
-        </div>
-        <div class="call">
-          <h3>不夾帶自己的 <code>adb.exe</code></h3>
-          <p>
-            adb server 是單例的。夾帶的版本跟你已經在跑的（例如 Android Studio 的）
-            不同時，兩邊會互相殺掉重啟，表現出來就是「用一用就要重插 USB」。
-            我們直接講 adb 的協定，當它的另一個 client。
-          </p>
-        </div>
-        <div class="call">
-          <h3>鎖住自動曝光的 fps 範圍</h3>
-          <p>
-            不鎖的話，光線一暗自動曝光就會把更新率掉到 15fps 去換亮度。
-            使用者感覺到的是「突然變 lag」，其實是曝光在偷你的影格。
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="band">
-    <div class="wrap">
-      <h2 class="band-title">裝起來</h2>
-      <p class="lede">兩個部分：手機上的 app，和 OBS 的外掛。外掛裝在使用者層級，不需要管理員權限。</p>
-<pre><span class="c"># OBS 外掛</span>
-obs-plugin\build.bat
-
-<span class="c"># 手機 app</span>
-cd android
-gradle assembleDebug
-adb install -r app\build\outputs\apk\debug\app-debug.apk
-</pre>
-      <p class="lede">
-        接著在 OBS 加入「Fovea」來源，手機上按開始，插上 USB 就會自己接上。
-        外掛會用你現有的 adb server 建立轉接，不需要手動下指令。
+      <p>
+        合成素材下這三段加起來不到一毫秒；換成真實相機畫面，解碼是 5.9 ms。
+        <strong>電腦端能省的已經省完了</strong>——剩下的差距在手機那頭。
       </p>
     </div>
-  </section>
 
-  <section class="band">
-    <div class="wrap">
-      <h2 class="band-title">目前的狀態</h2>
-      <div class="status">
-        <div><span class="yes">✓</span><span>手機 app 與 OBS 外掛都完成，兩端串接驗證通過</span></div>
-        <div><span class="yes">✓</span><span>電腦端延遲、長時間穩定度、斷線恢復都有實測數字</span></div>
-        <div><span class="yes">✓</span><span>實機串流已驗證：1080p30、23.7 Mbps、影格間隔零抖動</span></div>
-        <div><span class="no">·</span><span>與同類工具的端到端對比量測尚未進行</span></div>
-      </div>
+    <div class="legend">
+      <span><i class="swatch measured"></i>已量測 — 數字來自實測</span>
+      <span><i class="swatch budget"></i>設計預算 — 還沒在實機上量到</span>
     </div>
-  </section>
+  </div>
+</section>
 
-</main>
+<!-- ========================== 訊號鏈 ========================== -->
+<section id="chain">
+  <p class="eyebrow inst">02 / 管線</p>
+  <h2>一條路徑，零拷貝的那一段畫粗</h2>
+
+  <figure class="figure">
+    <img src="img/pipeline-diagram.svg" alt="Camera2 到 OBS 的管線圖，標出共用同一塊記憶體與需要複製的邊界" width="1000" height="420">
+    <figcaption>
+      粗線代表同一塊記憶體。Camera2 的輸出 Surface 直接綁在 MediaCodec 的輸入上，
+      影格從來沒有進過 Java 記憶體。細分段箭頭是必須複製的邊界。
+    </figcaption>
+  </figure>
+
+  <div class="cards">
+    <div class="card">
+      <p class="kicker inst">手機端 · Kotlin</p>
+      <h3>擷取</h3>
+      <p>
+        編碼器開低延遲模式、固定位元率、不產生 B-frame。自動曝光的 fps 範圍被鎖死，
+        所以光線一暗畫面不會偷偷掉到 15fps。
+      </p>
+    </div>
+    <div class="card">
+      <p class="kicker inst">USB · adb forward</p>
+      <h3>傳輸</h3>
+      <p>
+        走 abstract socket，不在手機上開對外的網路埠，也不需要知道 IP。轉接是接你電腦上
+        既有的 adb server——我們不夾帶第二支 <code>adb.exe</code>，因為那正是同類工具
+        一用就斷線的原因。
+      </p>
+    </div>
+    <div class="card">
+      <p class="kicker inst">電腦端 · OBS plugin</p>
+      <h3>解碼</h3>
+      <p>
+        FFmpeg 低延遲解碼，只用 slice 層級的多執行緒——frame 層級雖然更快，
+        代價是輸出必然落後好幾格。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================== 不緩衝 ========================== -->
+<section id="buffer">
+  <p class="eyebrow inst">03 / 為什麼不排隊</p>
+  <div class="split">
+    <figure class="figure">
+      <img src="img/latency-comparison.svg" alt="有緩衝與不緩衝兩種交付方式的示意對比" width="900" height="320">
+    </figure>
+    <div>
+      <h2>排隊就是延遲</h2>
+      <p>
+        佇列只留三格，而且滿了丟最舊的那張。傳輸跟不上時，你要看到的是
+        <strong>最新的畫面</strong>，不是三格之前的畫面。
+      </p>
+      <p>
+        送進 OBS 時關掉緩衝，畫面一到就顯示，晚到的直接丟掉。這比解碼器選型
+        更值得在意——電腦端整段管線只佔個位數毫秒，緩衝一格就是 33 毫秒。
+      </p>
+      <p class="cta-note inst">上圖為示意，未標任何毫秒數字</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================== 壞網路 ========================== -->
+<section id="network">
+  <p class="eyebrow inst">04 / 網路變差的時候</p>
+  <div class="split flip">
+    <figure class="figure">
+      <img src="img/network-adapt.svg" alt="壅塞時位元率階梯式下降、恢復後緩慢爬升的示意" width="900" height="320">
+    </figure>
+    <div>
+      <h2>把畫質換成順暢，然後慢慢換回來</h2>
+      <p>
+        送出緩衝被刻意壓到 256 KB。預設的核心緩衝可以藏好幾百 KB，寫進去當下不阻塞、
+        看起來一切正常，但畫面已經在排隊——使用者感受到的是<strong>越用越延遲</strong>。
+      </p>
+      <p>
+        壓小之後傳不動就會立刻阻塞，我們才有機會知道並降位元率。恢復時刻意慢慢升回去，
+        避免在邊緣反覆震盪。正常網路下實測 23,690 kbps 不會誤判降速。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================== 量到的 ========================== -->
+<section id="measured">
+  <p class="eyebrow inst">05 / 實測</p>
+  <h2>已經量到的</h2>
+  <p>
+    這些是實際跑出來的數字，不是估的。量測方法、原始樣本與環境限制都寫在專案的
+    量測文件裡；<strong>量不到的部分也一併寫著為什麼量不到</strong>。
+  </p>
+
+  <table class="data">
+    <thead>
+      <tr><th>項目</th><th>結果</th><th>條件</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>解碼一張影格</td><td class="num">5.9 ms</td><td>實機 1080p30 相機畫面，23.7 Mbps</td></tr>
+      <tr><td>擷取 → 到達 PC</td><td class="num">9.8 ms</td><td>實機中位數，p95 21.2 ms</td></tr>
+      <tr><td>影格間隔穩定度</td><td class="num">33.7 ms</td><td>實機最小＝最大＝中位數</td></tr>
+      <tr><td>收到封包到交給 OBS</td><td class="num">0.85 ms</td><td>與送端共用同一個時鐘</td></tr>
+      <tr><td>連續串流</td><td class="num">19,569 張</td><td>652 秒，30.001 fps</td></tr>
+      <tr><td>與理論影格數的差異</td><td class="num">1 張</td><td>0.005%</td></tr>
+      <tr><td>記憶體與 handle</td><td class="num">無成長</td><td>11 分鐘後低於起始值</td></tr>
+      <tr><td>斷線自動恢復</td><td class="num">5 / 5</td><td>1.1–1.3 秒，影格續增</td></tr>
+      <tr><td>USB 可用頻寬</td><td class="num">194 Mbps</td><td>實測 adb 傳輸</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ========================== 取捨 ========================== -->
+<section id="decisions">
+  <p class="eyebrow inst">06 / 刻意的取捨</p>
+  <h2>幾個看起來反直覺的決定</h2>
+
+  <div class="decisions">
+    <div class="decision">
+      <h3>用軟體解碼，不用硬體解碼</h3>
+      <p>
+        1080p 的軟解只要幾毫秒，而硬解要把畫面從顯示卡讀回主記憶體交給 OBS——
+        光是回讀的成本通常就超過省下來的解碼時間。
+      </p>
+    </div>
+    <div class="decision">
+      <h3>佇列只留三格，而且丟舊的</h3>
+      <p>
+        排隊就是延遲。傳輸跟不上時使用者要看到的是最新畫面，不是三格之前的畫面。
+      </p>
+    </div>
+    <div class="decision">
+      <h3>不夾帶自己的 <code>adb.exe</code></h3>
+      <p>
+        兩支 adb 版本不同會互相把對方的 server 殺掉，症狀是「用一用就斷線」。
+        我們直接接你電腦上既有的那一支。
+      </p>
+    </div>
+    <div class="decision">
+      <h3>鎖住自動曝光的 fps 範圍</h3>
+      <p>
+        相機在暗處會自動降到 15fps 換取亮度。挑 fps 範圍時必須先比上限再比下限，
+        否則會挑到可變範圍，畫面在光線一暗時偷偷掉格。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================== 下載 ========================== -->
+<section id="download">
+  <p class="eyebrow inst">07 / 取得</p>
+  <h2>下載</h2>
+
+  <div class="dl">
+    <div class="dl-item">
+      <h3>OBS plugin — Windows</h3>
+      <p class="dl-req">
+        需要 OBS Studio 32.2.x。解壓後把 <code>fovea</code> 資料夾放到
+        <code>C:\ProgramData\obs-studio\plugins\</code>——是 ProgramData 不是 AppData。
+      </p>
+      <a class="btn" href="https://github.com/open5588/fovea-releases/releases/latest">取得</a>
+    </div>
+    <div class="dl-item">
+      <h3>OBS plugin — macOS</h3>
+      <p class="dl-req">
+        需要 OBS Studio 32.x，Apple Silicon。安裝後要跑一次
+        <code>xattr -dr com.apple.quarantine</code>，否則 Gatekeeper 會擋掉。
+      </p>
+      <a class="btn" href="https://github.com/open5588/fovea-releases/releases/latest">取得</a>
+    </div>
+  </div>
+
+  <div class="notyet">
+    <h3 class="inst">還沒有的東西</h3>
+    <ul>
+      <li><strong>手機端 app 尚未上架。</strong>Android 版已在實機運作，但還沒完成 release 簽章與商店上架流程。</li>
+      <li><strong>iOS 版不存在。</strong>那需要用 Swift／AVFoundation／VideoToolbox 從零寫，不是把 Android 版移植過去。</li>
+      <li><strong>Intel Mac 沒有建置。</strong>目前只有 arm64。</li>
+      <li>兩個執行檔都<strong>沒有數位簽章</strong>，Windows 的 SmartScreen 與 macOS 的 Gatekeeper 都會有提示。</li>
+      <li>最慢的影格解碼會衝到 62／97 ms，推測與 keyframe 有關，尚未確認。這是目前最值得修的問題。</li>
+    </ul>
+  </div>
+</section>
 
 <footer>
-  <div class="wrap">
-    <p>
-      Fovea 得名自視網膜中央那個視力最銳利的小凹——密度最高的地方就那麼一小塊，
-      其餘都是周邊。
-    </p>
-    <p>
-      OBS 外掛因 libobs 授權關係為 GPLv2。上面沒有標成「已量」的數字都是設計預算，
-      不是量測結果。
-    </p>
-  </div>
+  <span>Fovea — 手機當 OBS 攝影機</span>
+  <span><a href="https://github.com/open5588/fovea-releases">下載</a></span>
 </footer>
+
+</main>
+</div>
+
+<script>
+// 標尺上的目前位置。用 IntersectionObserver 而不是捲動事件：
+// 捲動事件每一格都會觸發，這裡只需要在跨越章節時做一次事。
+(function () {
+  var links = [].slice.call(document.querySelectorAll('.stations a'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      var a = map[e.target.id];
+      if (!a) return;
+      // rootMargin 把判定線拉到視窗上緣附近，讓標示跟閱讀位置一致，
+      // 而不是等整個章節都進畫面才亮起來。
+      if (e.isIntersecting) {
+        links.forEach(function (x) { x.classList.remove('on'); });
+        a.classList.add('on');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+
+  ['budget','chain','buffer','network','measured','decisions','download']
+    .forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) io.observe(el);
+    });
+})();
+</script>
 
 </body>
 </html>
